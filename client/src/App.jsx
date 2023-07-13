@@ -22,7 +22,7 @@ function App() {
   useEffect(() => {
     const fetchMotionEvents = async () => {
       try {
-        const response = await fetch("http://localhost:4000/api/motion-events");
+        const response = await fetch("https://motion-detection.onrender.com/api/motion-events");
         const data = await response.json();
         const formattedLogs = data.map((event) => {
           const timestamp = new Date(event.timestamp);
