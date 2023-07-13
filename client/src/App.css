@@ -21,6 +21,8 @@
   overflow-y: scroll;
   border: 2px solid black;
   border-radius: 10px;
+  display: flex;
+  flex-direction: column-reverse;
 }
 
 .items::-webkit-scrollbar {

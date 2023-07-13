@@ -1,6 +1,6 @@
-import Card from './components/Card';
-import './App.css';
-import { useState, useEffect } from 'react';
+import Card from "./components/Card";
+import "./App.css";
+import { useState, useEffect } from "react";
 
 function App() {
   const [logs, setLogs] = useState([]);
@@ -22,7 +22,7 @@ function App() {
   useEffect(() => {
     const fetchMotionEvents = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/motion-events');
+        const response = await fetch("http://localhost:4000/api/motion-events");
         const data = await response.json();
         const formattedLogs = data.map((event) => {
           const timestamp = new Date(event.timestamp);
@@ -30,7 +30,7 @@ function App() {
         });
         setLogs(formattedLogs);
       } catch (error) {
-        console.error('Failed to fetch motion events', error);
+        console.error("Failed to fetch motion events", error);
       }
     };
 
