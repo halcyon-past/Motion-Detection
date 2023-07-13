@@ -1,11 +1,16 @@
 #include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <ArduinoJson.h>
 
 #define PIR_PIN D2
 
 const char* ssid = "Xev123";
-const char* password = "Xesp8266"; 
+const char* password = "Xesp8266";
+const char* serverAddress = "motion-detection.onrender.com";
+const int serverPort = 443;
+const char* uri = "/api/motion-events";
 
-WiFiServer server(80);
+WiFiClientSecure client;
 
 void setup() {
   Serial.begin(9600);
@@ -14,7 +19,6 @@ void setup() {
   pinMode(PIR_PIN, INPUT);
 
   // Connect to WiFi network
-  Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
@@ -25,51 +29,60 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
+
   Serial.println("");
   Serial.println("WiFi connected");
-
-  // Start the server
-  server.begin();
-  Serial.println("Server started");
-
-  // Print the IP address
-  Serial.print("Use this URL to connect: http://");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+  client.setInsecure();
 }
 
 void loop() {
-  // Check if a client has connected
-  WiFiClient client = server.accept();
-  if (!client) {
+  int motionValue = digitalRead(PIR_PIN);
+
+  if (motionValue == HIGH) {
+    sendMotionData(true);
+  } else {
+    sendMotionData(false);
+  }
+
+  delay(1000);  // Adjust the delay as per your requirement
+}
+
+void sendMotionData(bool motionDetected) {
+  StaticJsonDocument<200> jsonDoc;
+  jsonDoc["motion"] = motionDetected;
+
+  String jsonData;
+  serializeJson(jsonDoc, jsonData);
+
+  Serial.println("Sending motion data...");
+
+  if (!client.connect(serverAddress, serverPort)) {
+    Serial.println("Connection failed");
     return;
   }
 
-  // Wait until the client sends some data
-  while (!client.available()) {
-    delay(1);
+  String postPayload = "{\"motion\": " + String(motionDetected ? "true" : "false") + "}";
+
+  client.print("POST ");
+  client.print(uri);
+  client.println(" HTTP/1.1");
+  client.print("Host: ");
+  client.println(serverAddress);
+  client.println("Content-Type: application/json");
+  client.print("Content-Length: ");
+  client.println(postPayload.length());
+  client.println();
+  client.println(postPayload);
+
+  delay(100);
+
+  while (client.available()) {
+    String line = client.readStringUntil('\r');
+    Serial.println(line);
   }
 
-  // Read the first line of the request
-  String request = client.readStringUntil('\r');
-  client.flush();
-
-  int value = digitalRead(PIR_PIN);
-  if (value == HIGH) {
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/html");
-    client.println(""); // do not forget this one
-    client.println("<!DOCTYPE HTML>");
-    client.println("<html>");
-    client.println("Motion detected");
-    client.println("</html>");
-  } else {
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/html");
-    client.println(""); // do not forget this one
-    client.println("<!DOCTYPE HTML>");
-    client.println("<html>");
-    client.println("No motion detected");
-    client.println("</html>");
-  }
-  delay(1);
+  client.stop();
 }
