@@ -1,6 +1,7 @@
-import Card from "./components/Card";
-import "./App.css";
 import { useState, useEffect } from "react";
+import Card from "./components/Card";
+import mqtt from "mqtt";
+import "./App.css";
 
 function App() {
   const [logs, setLogs] = useState([]);
@@ -20,28 +21,30 @@ function App() {
   };
 
   useEffect(() => {
-    const fetchMotionEvents = async () => {
-      try {
-        const response = await fetch("https://motion-detection.onrender.com/api/motion-events");
-        const data = await response.json();
-        const formattedLogs = data.map((event) => {
-          const timestamp = new Date(event.timestamp);
-          return formatTimestamp(timestamp);
-        });
-        setLogs(formattedLogs);
-      } catch (error) {
-        console.error("Failed to fetch motion events", error);
+    // MQTT connection options
+    const client = mqtt.connect("ws://broker.hivemq.com:8000/mqtt");
+
+    client.on("connect", () => {
+      console.log("Connected to MQTT broker");
+      client.subscribe("motion-detection/events", (err) => {
+        if (!err) {
+          console.log("Subscribed to motion-detection/events");
+        }
+      });
+    });
+
+    client.on("message", (topic, message) => {
+      if (topic === "motion-detection/events") {
+        const motionEvent = JSON.parse(message.toString());
+        const timestamp = new Date();
+        const formattedLog = formatTimestamp(timestamp);
+
+        setLogs((prevLogs) => [formattedLog, ...prevLogs]); // Add the latest event at the top
       }
-    };
-
-    fetchMotionEvents();
-
-    const interval = setInterval(() => {
-      fetchMotionEvents();
-    }, 5000);
+    });
 
     return () => {
-      clearInterval(interval);
+      client.end(); // Clean up the MQTT connection when the component is unmounted
     };
   }, []);
 

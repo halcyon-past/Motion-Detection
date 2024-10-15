@@ -1,16 +1,16 @@
 #include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <ArduinoJson.h>
+#include <PubSubClient.h>
 
 #define PIR_PIN D2
 
 const char* ssid = "Xev123";
 const char* password = "Xesp8266";
-const char* serverAddress = "motion-detection.onrender.com";
-const int serverPort = 443;
-const char* uri = "/api/motion-events";
+const char* mqttServer = "broker.hivemq.com";
+const int mqttPort = 1883;
+const char* mqttTopic = "motion-detection/events";
 
-WiFiClientSecure client;
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 void setup() {
   Serial.begin(9600);
@@ -35,54 +35,44 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  client.setInsecure();
+  // Set MQTT server and port
+  client.setServer(mqttServer, mqttPort);
 }
 
 void loop() {
-  int motionValue = digitalRead(PIR_PIN);
-
-  if (motionValue == HIGH) {
-    sendMotionData(true);
-  } else {
-    sendMotionData(false);
+  if (!client.connected()) {
+    reconnect();
   }
 
-  delay(1000);  // Adjust the delay as per your requirement
+  client.loop();
+
+  int motionValue = digitalRead(PIR_PIN);
+  sendMotionData(motionValue == HIGH);
+
+  delay(1000);
+}
+
+void reconnect() {
+  // Reconnect until successful
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+
+    // Attempt to connect (clientID must be unique, you can add a random number)
+    if (client.connect("ESP8266Client")) {
+      Serial.println("connected");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      delay(2000);
+    }
+  }
 }
 
 void sendMotionData(bool motionDetected) {
-  StaticJsonDocument<200> jsonDoc;
-  jsonDoc["motion"] = motionDetected;
+  // Create the JSON payload
+  String jsonPayload = "{\"motion\": " + String(motionDetected ? "true" : "false") + "}";
+  Serial.println("Publishing motion data: " + jsonPayload);
 
-  String jsonData;
-  serializeJson(jsonDoc, jsonData);
-
-  Serial.println("Sending motion data...");
-
-  if (!client.connect(serverAddress, serverPort)) {
-    Serial.println("Connection failed");
-    return;
-  }
-
-  String postPayload = "{\"motion\": " + String(motionDetected ? "true" : "false") + "}";
-
-  client.print("POST ");
-  client.print(uri);
-  client.println(" HTTP/1.1");
-  client.print("Host: ");
-  client.println(serverAddress);
-  client.println("Content-Type: application/json");
-  client.print("Content-Length: ");
-  client.println(postPayload.length());
-  client.println();
-  client.println(postPayload);
-
-  delay(100);
-
-  while (client.available()) {
-    String line = client.readStringUntil('\r');
-    Serial.println(line);
-  }
-
-  client.stop();
+  // Publish the motion event to the MQTT topic
+  client.publish(mqttTopic, jsonPayload.c_str());
 }

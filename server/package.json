@@ -17,6 +17,7 @@
     "http": "^0.0.1-security",
     "mongodb": "^5.7.0",
     "mongoose": "^7.3.2",
+    "mqtt": "^5.10.1",
     "nodemon": "^3.0.1"
   }
 }

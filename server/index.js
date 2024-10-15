@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const mqtt = require("mqtt");
 
 dotenv.config();
 const app = express();
@@ -36,27 +37,43 @@ const MotionEvent = mongoose.model("MotionEvent", motionEventSchema);
 app.use(cors());
 app.use(express.json());
 
-app.post("/api/motion-events", (req, res) => {
-  const { motion } = req.body;
+// Set up the MQTT client and connect to the broker
+const mqttClient = mqtt.connect("mqtt://broker.hivemq.com");
 
-  if (motion === true) {
-    const motionEvent = new MotionEvent({ motion });
-    motionEvent
-      .save()
-      .then(() => {
-        console.log("Motion event saved");
-        res.sendStatus(200);
-      })
-      .catch((err) => {
-        console.error("Failed to insert motion event", err);
-        res.sendStatus(500);
-      });
-  } else {
-    console.log("Motion event ignored (motion is false)");
-    res.sendStatus(200);
+mqttClient.on("connect", () => {
+  console.log("Connected to MQTT broker");
+  mqttClient.subscribe("motion-detection/events", (err) => {
+    if (!err) {
+      console.log("Subscribed to motion-detection/events");
+    } else {
+      console.error("Failed to subscribe to topic", err);
+    }
+  });
+});
+
+// Handle incoming MQTT messages
+mqttClient.on("message", (topic, message) => {
+  if (topic === "motion-detection/events") {
+    const motionData = JSON.parse(message.toString());
+    console.log("Received motion event: ", motionData);
+
+    if (motionData.motion === true) {
+      const motionEvent = new MotionEvent({ motion: motionData.motion });
+      motionEvent
+        .save()
+        .then(() => {
+          console.log("Motion event saved to MongoDB");
+        })
+        .catch((err) => {
+          console.error("Failed to save motion event", err);
+        });
+    } else {
+      console.log("Motion event ignored (motion is false)");
+    }
   }
 });
 
+// API to fetch motion events
 app.get("/api/motion-events", (req, res) => {
   MotionEvent.find({})
     .then((events) => {
