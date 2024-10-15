@@ -5,7 +5,7 @@ This project is a real-time motion detection system using an ESP8266 microcontro
 ## Table of Contents
 - [Overview](#overview)
 - [Features](#features)
-- [Architecture](#architecture)
+- [Architecture and System Design](#architecture-and-system-design)
 - [Prerequisites](#prerequisites)
 - [Setup Instructions](#setup-instructions)
   - [ESP8266 Setup](#esp8266-setup)
@@ -28,12 +28,85 @@ The system consists of three major parts:
 - Backend powered by Node.js and MongoDB to store motion logs.
 - Highly responsive interface with real-time updates using MQTT and WebSockets.
 
-## Architecture
-- **ESP8266** publishes motion events to an MQTT broker.
-- **Backend** subscribes to the MQTT broker and stores events in a MongoDB database.
-- **Frontend** subscribes to the same MQTT topic to display real-time motion events.
+## Architecture and System Design
+
+The system architecture is designed to facilitate real-time communication between the motion detection hardware and the user interface. Below is an overview of the architecture:
+
+```
++----------------+        MQTT Publish        +----------------+        MQTT Subscribe        +----------------+
+|                | ------------------------> |                | ---------------------------> |                 |
+|    ESP8266     |                           |   MQTT Broker  |                              |  React Frontend |
+| (Motion Sensor)| <------------------------ |                | <--------------------------- |                 |
++----------------+        MQTT Subscribe      +----------------+        MQTT Publish          +----------------+
+          |                                                                                           |
+          |                                                                                        HTTP GET
+          |                                                                                           |
+          v                                                                                           v
++----------------+                                                                             +----------------+
+|                |                                                                             |                |
+|    Backend     | <----------------------- MongoDB CRUD Operations -------------------------> |    MongoDB     |
+|   (Node.js)    |                                                                             |   Database     |
++----------------+                                                                             +----------------+
+```
+
+### Components Interaction:
+
+1. **ESP8266 Microcontroller**:
+   - **Motion Detection**: The ESP8266 is connected to a PIR motion sensor. It continuously monitors for motion.
+   - **MQTT Publish**: When motion is detected, it publishes a message to the MQTT broker on the topic `motion-detection/events`.
+   - **MQTT Subscribe**: Optionally, it can subscribe to topics if you wish to send commands from the backend or frontend to the ESP8266.
+
+2. **MQTT Broker**:
+   - Acts as a message broker that routes messages between publishers (ESP8266) and subscribers (Backend and Frontend).
+   - Facilitates real-time communication using the publish/subscribe pattern.
+
+3. **Backend Server (Node.js)**:
+   - **MQTT Subscribe**: Subscribes to the `motion-detection/events` topic to receive motion events.
+   - **Data Processing**: Upon receiving a motion event, it processes and stores the event in the MongoDB database.
+   - **API Endpoints**: Provides RESTful API endpoints (e.g., `/api/motion-events`) for fetching stored motion events.
+   - **Optional MQTT Publish**: Can publish messages back to the MQTT broker if needed (e.g., to control devices).
+
+4. **MongoDB Database**:
+   - Stores motion event logs with timestamps and motion status.
+   - Enables persistent storage and retrieval of historical data.
+
+5. **React + Vite Frontend**:
+   - **MQTT Subscribe**: Subscribes directly to the `motion-detection/events` topic to receive real-time updates.
+   - **Real-Time UI Update**: Updates the user interface immediately when a new motion event is received.
+   - **HTTP GET Requests**: Can fetch historical motion events from the backend via API endpoints for display or analysis.
+
+### Data Flow:
+
+- **Motion Event Detection**:
+  - The PIR sensor detects motion and the ESP8266 publishes a message to the MQTT broker.
+- **Real-Time Updates**:
+  - Both the backend server and the frontend application are subscribed to the MQTT broker.
+  - They receive the motion event in real-time.
+- **Data Storage**:
+  - The backend processes the motion event and stores it in the MongoDB database.
+- **User Interface Update**:
+  - The frontend updates the motion log display immediately upon receiving the event.
+- **Historical Data Access**:
+  - The frontend can request historical data from the backend via HTTP GET requests to display past motion events.
+
+### Why Use MQTT?
+
+- **Efficiency**: MQTT is a lightweight messaging protocol ideal for small sensors and mobile devices.
+- **Real-Time Communication**: Enables instant data transfer with minimal overhead.
+- **Scalability**: Supports multiple subscribers and publishers, allowing for easy system expansion.
+- **Decoupled Architecture**: Publishers and subscribers are independent, enhancing system flexibility.
+
+### Technologies Used:
+
+- **ESP8266**: Wi-Fi enabled microcontroller used for IoT applications.
+- **PIR Sensor**: Passive Infrared Sensor for detecting motion.
+- **MQTT Protocol**: Messaging protocol for IoT devices.
+- **Node.js**: Server-side JavaScript runtime for the backend server.
+- **MongoDB**: NoSQL database for storing motion events.
+- **React + Vite**: Frontend framework and tooling for building the user interface.
 
 ## Prerequisites
+
 Before starting the setup, make sure you have the following installed:
 - **Node.js** and **npm**
 - **MongoDB** database
@@ -66,48 +139,7 @@ Before starting the setup, make sure you have the following installed:
 4. **MQTT Broker**:
    - Use a public MQTT broker like `broker.hivemq.com` or set up your own broker.
 
-### Backend Setup
-
-1. **Install dependencies**:
-   ```bash
-   npm install express mongoose cors dotenv mqtt
-   ```
-
-2. **Pseudocode for Backend**:
-   - Initialize the server and connect to the MongoDB database.
-   - Set up the MQTT client and connect to the broker.
-   - Subscribe to the `motion-detection/events` topic.
-   - On receiving a message from the MQTT broker:
-     - Parse the motion data from the message.
-     - If motion is detected, save the event to MongoDB with the current timestamp.
-   - Provide an API endpoint (`/api/motion-events`) that fetches all stored motion events from the database.
-
-3. **Environment Variables**:
-   Create a `.env` file with the following:
-   ```
-   MONGO_URL=mongodb://localhost:27017/motiondb
-   ```
-
-### Frontend Setup
-
-1. **Install Dependencies**:
-   ```bash
-   npm install mqtt
-   ```
-
-2. **Pseudocode for Frontend**:
-   - Use the `mqtt` library to connect to the MQTT broker via WebSocket.
-   - Subscribe to the `motion-detection/events` topic.
-   - On receiving a message from the MQTT broker:
-     - Parse the message and format the timestamp.
-     - Update the state with the new motion event and display it in the UI in real-time.
-   - Continuously listen for new messages and update the UI accordingly.
-
-3. **User Interface**:
-   - Display the motion logs in a card-based layout.
-   - Each log entry shows the time when the motion was detected.
-
-### Working
+## Working
 
 1. **ESP8266**:
    - Detects motion using a PIR sensor and publishes data to an MQTT broker (`motion-detection/events` topic).
@@ -118,10 +150,12 @@ Before starting the setup, make sure you have the following installed:
 3. **Frontend**:
    - Subscribes to the MQTT broker and listens for real-time motion events, displaying them immediately in the web UI.
 
-### Future Enhancements
+## Future Enhancements
+
 - Implement user authentication to secure access to motion events.
 - Visualize motion detection data over time using charts and graphs.
 - Add support for multiple sensors and more complex event handling.
 
 ## License
+
 This project is licensed under the MIT License.
