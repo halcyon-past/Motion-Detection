@@ -32,22 +32,7 @@ The system consists of three major parts:
 
 The system architecture is designed to facilitate real-time communication between the motion detection hardware and the user interface. Below is an overview of the architecture:
 
-```
-+----------------+        MQTT Publish        +----------------+        MQTT Subscribe        +----------------+
-|                | ------------------------> |                | ---------------------------> |                 |
-|    ESP8266     |                           |   MQTT Broker  |                              |  React Frontend |
-| (Motion Sensor)| <------------------------ |                | <--------------------------- |                 |
-+----------------+        MQTT Subscribe      +----------------+        MQTT Publish          +----------------+
-          |                                                                                           |
-          |                                                                                        HTTP GET
-          |                                                                                           |
-          v                                                                                           v
-+----------------+                                                                             +----------------+
-|                |                                                                             |                |
-|    Backend     | <----------------------- MongoDB CRUD Operations -------------------------> |    MongoDB     |
-|   (Node.js)    |                                                                             |   Database     |
-+----------------+                                                                             +----------------+
-```
+![ARCHITECTURE](./assets/architecture.svg)
 
 ### Components Interaction:
 
