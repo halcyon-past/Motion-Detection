@@ -3,8 +3,8 @@
 
 #define PIR_PIN D2
 
-const char* ssid = "Xev123";
-const char* password = "Xesp8266";
+const char* ssid = "YourWifiSSID";
+const char* password = "YourWifiPassword";
 const char* mqttServer = "broker.hivemq.com";
 const int mqttPort = 1883;
 const char* mqttTopic = "motion-detection/events";
